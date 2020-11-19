@@ -1,5 +1,14 @@
 
-<!-- <input type="checkbox" [(ngModel)]="record" /> Record -->
-
+<input type="checkbox" [(ngModel)]="record" [ngModelOptions]="{standalone: true}"/> Record?
 <br />
 <button (click)="toggleStart()">Start/Stop</button>
+
+
+<div style="display: block; max-width:900px; max-height: 600px;">
+    <canvas baseChart id="chart" [datasets]="lineChartData" [labels]="lineChartLabels"
+        [options]="lineChartOptions" [colors]="lineChartColors" [legend]="lineChartLegend" [chartType]="lineChartType"
+        [plugins]="lineChartPlugins">
+    </canvas>
+</div>
+<button (click)="clearChart()">Clear Chart</button>
+

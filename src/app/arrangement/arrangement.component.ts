@@ -1,42 +1,86 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import * as Tone from 'Tone';
 import { Piano } from '@tonejs/piano';
 const rrs443 = require('../data/rrs443-1.json');
-const rrs547 = require('../data/rrs547.json');
+const rrs547 = require('../data/rrs547-3.json');
 const rrs667 = require('../data/rrs667-1.json');
 const bassElectricDef = require('../synth-presets/sampler/cello.json');
 const fluteDef = require('../synth-presets/sampler/flute.json');
+const harpDef = require('../synth-presets/sampler/harp.json');
 const recorder = new Tone.Recorder();
+import { ChartData, ChartDataSets, ChartOptions, ChartPoint } from 'chart.js';
+import { BaseChartDirective, Color, Label } from 'ng2-charts';
 
 
 @Component({
   selector: 'app-arrangement',
   templateUrl: './arrangement.component.html',
-  styleUrls: ['./arrangement.component.css']
+  styleUrls: ['./arrangement.component.css'],
 })
 export class ArrangementComponent implements OnInit {
 
   AMinorScale = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
   part443;
+  part547;
   part667;
-  record = false;
+  public record = false;
   // piano = new Piano().toDestination().connect(recorder);
+
+  @ViewChild(BaseChartDirective) chart: BaseChartDirective;
+
+  public lineChartData: ChartDataSets[] = [
+    {
+      data: [],
+      label: 'RRS443',
+      type: 'line',
+      pointRadius: 0,
+      fill: false,
+      lineTension: 0,
+      borderWidth: 2,
+      borderColor: 'blue',
+    },
+    {
+      data: [],
+      label: 'RRS547',
+      type: 'line',
+      pointRadius: 0,
+      fill: false,
+      lineTension: 0,
+      borderWidth: 2,
+      borderColor: 'green',
+    },
+    {
+      data: [],
+      label: 'RRS667',
+      type: 'line',
+      pointRadius: 0,
+      fill: false,
+      lineTension: 0,
+      borderWidth: 2,
+      borderColor: 'red',
+    },
+  ];
+  public lineChartLabels: Label[] = [];
+  public lineChartOptions: (ChartOptions & { annotation: any }) = {
+    annotation: { responsive: true, },
+    // scales: {
+    //   xAxes: [{
+    //     type: 'time',
+    //   }]
+    // }
+  };
+  public lineChartColors: Color[] = [
+    {
+      backgroundColor: 'rgba(255,0,0,0.3)',
+    },
+  ];
+  public lineChartLegend = true;
+  public lineChartType = 'line';
+  public lineChartPlugins = [];
 
   constructor() { }
 
   ngOnInit(): void {
-    // this.baseline();
-    // this.kickdrums();
-    // this.snaredrums();
-    // const synth = this.synth();
-    // const synth2 = this.synth2();
-    // const synth3 = this.synth3();
-    // const bass = new Tone.Synth({
-    //   oscillator: {
-    //     type: 'triangle'
-    //   }
-    // }).toDestination().connect(recorder);
-
     const chorus = new Tone.Chorus(4, 2.5, 1).toDestination();
     const reverb = new Tone.Reverb({
       wet: 1,
@@ -45,29 +89,41 @@ export class ArrangementComponent implements OnInit {
     }).toDestination();
     const limiter = new Tone.Limiter(-10).toDestination();
     const limiter2 = new Tone.Limiter(-10).toDestination();
-    const gainNode = new Tone.Gain(0).toDestination();
+    const stereo = new Tone.StereoWidener(1).toDestination();
 
-    const bassElectric = new Tone.Sampler( {
+    const cello = new Tone.Sampler({
       urls: bassElectricDef.urls,
       baseUrl: bassElectricDef.baseUrl,
-      volume: -6,
+      volume: -15,
     }).toDestination()
       // .connect(limiter)
-      // .connect(gainNode)
       .connect(reverb)
+      .connect(new Tone.StereoWidener(0.3).toDestination())
+      .connect(recorder);
+
+    const harp = new Tone.Sampler({
+      urls: harpDef.urls,
+      baseUrl: harpDef.baseUrl,
+      volume: -15,
+    }).toDestination()
+      // .connect(limiter)
+      .connect(reverb)
+      .connect(new Tone.StereoWidener(0.5).toDestination())
       .connect(recorder);
 
     const flute = new Tone.Sampler({
       urls: fluteDef.urls,
       baseUrl: fluteDef.baseUrl,
-      volume: -6,
+      volume: -25,
     }).toDestination()
       .connect(reverb)
-      // .connect(limiter2)
+      .connect(new Tone.StereoWidener(0.7).toDestination())
       .connect(recorder);
 
     const timedNotes443 = this.timeNotes(4, rrs443);
     const mergedNotes443 = this.mergeNotes(timedNotes443).filter(item => item !== null);
+    const timedNotes547 = this.timeNotes(4, rrs547);
+    const mergedNotes547 = this.mergeNotes(timedNotes547).filter(item => item !== null);
     const timedNotes667 = this.timeNotes(4, rrs667);
     const mergedNotes667 = this.mergeNotes(timedNotes667).filter(item => item !== null);
 
@@ -78,6 +134,17 @@ export class ArrangementComponent implements OnInit {
       //   this.piano.pedalUp({ time });
       // }
       flute.triggerAttackRelease(note.note, note.duration);
+
+      console.log(`${note.index} - ${time} : ${Tone.Frequency(note.note).toMidi()}`);
+      // this.lineChartData[0].data.push(Tone.Frequency(note.note).toFrequency());
+      const measure = Tone.Time(time).toBarsBeatsSixteenths();
+      const d: ChartPoint = { x: measure, y: Tone.Frequency(note.note).toMidi() };
+      console.log(`data: ${JSON.stringify(d)}`);
+      (this.chart.datasets[0].data as ChartPoint[]).push(d);
+      if (!this.chart.labels.includes(measure)) {
+        this.chart.labels.push(measure);
+      }
+      this.chart.update();
       // this.piano.keyDown({ note: note.note, time });
       // this.piano.keyUp({ note: note.note, time: time + Tone.Time(note.duration).valueOf() });
       // if (note.duration === '1n') {
@@ -85,11 +152,40 @@ export class ArrangementComponent implements OnInit {
       // }
     }, mergedNotes443);
 
+    this.part547 = new Tone.Part((time, note) => {
+      // console.log(`Top Note: ${JSON.stringify(note)}`);
+      // synth.triggerAttackRelease(note.note, note.duration);
+      // if (note.duration === '1n') {
+      //   this.piano.pedalUp({ time });
+      // }
+      harp.triggerAttackRelease(note.note, note.duration + Tone.Time('4n'));
+      const measure = Tone.Time(time).toBarsBeatsSixteenths();
+      const d: ChartPoint = { x: measure, y: Tone.Frequency(note.note).toMidi() };
+      console.log(`data: ${JSON.stringify(d)}`);
+      (this.chart.datasets[1].data as ChartPoint[]).push(d);
+      if (!this.chart.labels.includes(measure)) {
+        this.chart.labels.push(measure);
+      }
+      this.chart.update();
+      // this.piano.keyDown({ note: note.note, time });
+      // this.piano.keyUp({ note: note.note, time: time + Tone.Time(note.duration).valueOf() });
+      // if (note.duration === '1n') {
+      //   this.piano.pedalDown({ time: time + Tone.Time(note.duration).valueOf() });
+      // }
+    }, mergedNotes547);
 
     this.part667 = new Tone.Part((time, note) => {
       // console.log(`Bass Note: ${JSON.stringify(note)}`);
       // this.basswind().triggerAttackRelease(note.note, note.duration);
-      bassElectric.triggerAttackRelease(note.note, note.duration);
+      cello.triggerAttackRelease(note.note, note.duration);
+      const measure = Tone.Time(time).toBarsBeatsSixteenths();
+      const d: ChartPoint = { x: measure, y: Tone.Frequency(note.note).toMidi() };
+      console.log(`data: ${JSON.stringify(d)}`);
+      (this.chart.datasets[2].data as ChartPoint[]).push(d);
+      if (!this.chart.labels.includes(measure)) {
+        this.chart.labels.push(measure);
+      }
+      this.chart.update();
       // this.piano.keyDown({ note: note.note, time });
       // this.piano.keyUp({ note: note.note, time: time + Tone.Time(note.duration).valueOf() });
     }, mergedNotes667);
@@ -99,12 +195,13 @@ export class ArrangementComponent implements OnInit {
   toggleStart(): void {
     if (Tone.Transport.state !== 'started') {
       // this.piano.load().then(n => {
-        if (this.record) {
-          recorder.start();
-        }
-        this.part443.start(0);
-        this.part667.start(0);
-        Tone.Transport.start();
+      if (this.record) {
+        recorder.start();
+      }
+      this.part443.start(0);
+      this.part547.start(0);
+      this.part667.start(0);
+      Tone.Transport.start();
       // });
     } else {
       Tone.Transport.stop();
@@ -121,92 +218,11 @@ export class ArrangementComponent implements OnInit {
     }
   }
 
-  countAdd(count: string, add: number): string {
-    return '';
-  }
-
-  synth(): Tone.AMSynth {
-    return new Tone.AMSynth(
-      {
-        harmonicity: 2,
-        oscillator: {
-          type: 'amsine2',
-          modulationType: 'sine',
-          harmonicity: 1.01
-        },
-        envelope: {
-          attack: 0.006,
-          decay: 4,
-          sustain: 0.04,
-          release: 1.2
-        },
-        modulation: {
-          volume: 13,
-          type: 'amsine2',
-          modulationType: 'sine',
-          harmonicity: 12
-        },
-        modulationEnvelope: {
-          attack: 0.006,
-          decay: 0.2,
-          sustain: 0.2,
-          release: 0.4
-        }
-      }
-    ).toDestination().connect(recorder);
-  }
-
-  synth2(): Tone.AMSynth {
-    return new Tone.AMSynth({
-      harmonicity: 2.5,
-      oscillator: {
-        type: 'fatsawtooth'
-      },
-      envelope: {
-        attack: 0.1,
-        decay: 0.2,
-        sustain: 0.2,
-        release: 0.3
-      },
-      modulation: {
-        type: 'square'
-      },
-      modulationEnvelope: {
-        attack: 0.5,
-        decay: 0.01
-      }
-    }).toDestination().connect(recorder);
-  }
-
-  synth3(): Tone.Synth {
-    return new Tone.Synth(
-      {
-        oscillator: {
-          type: 'sine'
-        },
-        envelope: {
-          attack: 0.001,
-          decay: 0.1,
-          sustain: 0.1,
-          release: 1.2
-        }
-      }).toDestination().connect(recorder);
-  }
-
-  basswind(): Tone.Synth {
-    return new Tone.Synth({
-      portamento: 0.0,
-      volume: 0.7,
-      oscillator: {
-        type: 'square4'
-      },
-      envelope: {
-        attack: 2,
-        decay: 1,
-        sustain: 0.2,
-        release: 2
-      }
-    }).toDestination().connect(recorder);
+  clearChart(): void {
+    this.chart.datasets[0].data = [];
+    this.chart.datasets[1].data = [];
+    this.chart.datasets[2].data = [];
+    this.chart.labels = [];
   }
 
   timeNotes(notesPerMeasure: number, data: any[]): Array<any> {
@@ -221,7 +237,7 @@ export class ArrangementComponent implements OnInit {
     }
     return notes;
   }
-  
+
   mergeNotes(notes: Array<any>): Array<any> {
     let lastNote;
     for (let i = 0; i < notes.length; i++) {
