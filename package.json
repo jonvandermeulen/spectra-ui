@@ -27,6 +27,7 @@
     "rxjs": "~6.6.0",
     "tone": "^14.7.58",
     "tslib": "^2.0.0",
+    "webmidi": "^2.5.1",
     "zone.js": "~0.10.2"
   },
   "devDependencies": {
