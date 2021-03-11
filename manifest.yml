@@ -1,7 +1,0 @@
-applications:
-- name: jon-spectraphonics
-  buildpacks:
-  - https://github.com/cloudfoundry/staticfile-buildpack.git#v1.4.38
-  memory: 1024M
-  routes:
-    - route: jon-spectraphonics.run.aws-usw02-pr.ice.predix.io
