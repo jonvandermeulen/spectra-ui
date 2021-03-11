@@ -1,6 +1,14 @@
 
+<select>
+    <option></option>
+</select>
+
+<input type="number" [(ngModel)]="bpm" [ngModelOptions]="{standalone: true}"> BPM 
+<br />
+
 <input type="checkbox" [(ngModel)]="record" [ngModelOptions]="{standalone: true}"/> Record?
 <br />
+
 <button (click)="toggleStart()">Start/Stop</button>
 
 

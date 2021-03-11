@@ -1,15 +1,16 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import * as Tone from 'Tone';
 import { Piano } from '@tonejs/piano';
-const rrs443 = require('../data/rrs443-1.json');
-const rrs547 = require('../data/rrs547-3.json');
-const rrs667 = require('../data/rrs667-1.json');
-const bassElectricDef = require('../synth-presets/sampler/cello.json');
-const fluteDef = require('../synth-presets/sampler/flute.json');
-const harpDef = require('../synth-presets/sampler/harp.json');
+const rrs443 = require('../../data/rrs443-1.json');
+const rrs547 = require('../../data/rrs547-3.json');
+const rrs667 = require('../../data/rrs667-1.json');
+const bassElectricDef = require('../synth-presets/sampler-defs/cello.json');
+const fluteDef = require('../synth-presets/sampler-defs/flute.json');
+const harpDef = require('../synth-presets/sampler-defs/harp.json');
 const recorder = new Tone.Recorder();
 import { ChartData, ChartDataSets, ChartOptions, ChartPoint } from 'chart.js';
 import { BaseChartDirective, Color, Label } from 'ng2-charts';
+import { DataConversionService } from '../services/data-conversion.service';
 
 
 @Component({
@@ -20,10 +21,12 @@ import { BaseChartDirective, Color, Label } from 'ng2-charts';
 export class ArrangementComponent implements OnInit {
 
   AMinorScale = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+  CMajorScale = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
   part443;
   part547;
   part667;
   public record = false;
+  public bpm = 120;
   // piano = new Piano().toDestination().connect(recorder);
 
   @ViewChild(BaseChartDirective) chart: BaseChartDirective;
@@ -63,11 +66,22 @@ export class ArrangementComponent implements OnInit {
   public lineChartLabels: Label[] = [];
   public lineChartOptions: (ChartOptions & { annotation: any }) = {
     annotation: { responsive: true, },
-    // scales: {
-    //   xAxes: [{
-    //     type: 'time',
-    //   }]
-    // }
+    scales: {
+      xAxes: [{
+        display: true,
+        scaleLabel: {
+          display: true,
+          labelString: 'Measure'
+        }
+      }],
+      yAxes: [{
+        display: true,
+        scaleLabel: {
+          display: true,
+          labelString: 'MIDI note'
+        }
+      }]
+    }
   };
   public lineChartColors: Color[] = [
     {
@@ -135,11 +149,12 @@ export class ArrangementComponent implements OnInit {
       // }
       flute.triggerAttackRelease(note.note, note.duration);
 
-      console.log(`${note.index} - ${time} : ${Tone.Frequency(note.note).toMidi()}`);
       // this.lineChartData[0].data.push(Tone.Frequency(note.note).toFrequency());
-      const measure = Tone.Time(time).toBarsBeatsSixteenths();
+      const ticks = Tone.Transport.getTicksAtTime(time);
+      const measure = Tone.Time(ticks / 192).toBarsBeatsSixteenths();
+      console.log(`${note.index} - ${measure} : ${Tone.Frequency(note.note).toMidi()}`);
       const d: ChartPoint = { x: measure, y: Tone.Frequency(note.note).toMidi() };
-      console.log(`data: ${JSON.stringify(d)}`);
+      // console.log(`data: ${JSON.stringify(d)}`);
       (this.chart.datasets[0].data as ChartPoint[]).push(d);
       if (!this.chart.labels.includes(measure)) {
         this.chart.labels.push(measure);
@@ -159,7 +174,8 @@ export class ArrangementComponent implements OnInit {
       //   this.piano.pedalUp({ time });
       // }
       harp.triggerAttackRelease(note.note, note.duration + Tone.Time('4n'));
-      const measure = Tone.Time(time).toBarsBeatsSixteenths();
+      const ticks = Tone.Transport.getTicksAtTime(time);
+      const measure = Tone.Time(ticks / 192).toBarsBeatsSixteenths();
       const d: ChartPoint = { x: measure, y: Tone.Frequency(note.note).toMidi() };
       console.log(`data: ${JSON.stringify(d)}`);
       (this.chart.datasets[1].data as ChartPoint[]).push(d);
@@ -178,7 +194,8 @@ export class ArrangementComponent implements OnInit {
       // console.log(`Bass Note: ${JSON.stringify(note)}`);
       // this.basswind().triggerAttackRelease(note.note, note.duration);
       cello.triggerAttackRelease(note.note, note.duration);
-      const measure = Tone.Time(time).toBarsBeatsSixteenths();
+      const ticks = Tone.Transport.getTicksAtTime(time);
+      const measure = Tone.Time(ticks / 192).toBarsBeatsSixteenths();
       const d: ChartPoint = { x: measure, y: Tone.Frequency(note.note).toMidi() };
       console.log(`data: ${JSON.stringify(d)}`);
       (this.chart.datasets[2].data as ChartPoint[]).push(d);
@@ -194,17 +211,17 @@ export class ArrangementComponent implements OnInit {
 
   toggleStart(): void {
     if (Tone.Transport.state !== 'started') {
-      // this.piano.load().then(n => {
+      
       if (this.record) {
         recorder.start();
       }
       this.part443.start(0);
       this.part547.start(0);
       this.part667.start(0);
+      Tone.Transport.bpm.value = this.bpm;
       Tone.Transport.start();
-      // });
     } else {
-      Tone.Transport.stop();
+      Tone.Transport.pause();
       if (recorder.state === 'started') {
         recorder.stop().then(
           (recording) => {
@@ -215,6 +232,7 @@ export class ArrangementComponent implements OnInit {
             anchor.click();
           });
       }
+      Tone.Transport.seconds = 0;
     }
   }
 
@@ -223,6 +241,7 @@ export class ArrangementComponent implements OnInit {
     this.chart.datasets[1].data = [];
     this.chart.datasets[2].data = [];
     this.chart.labels = [];
+    this.chart.update();
   }
 
   timeNotes(notesPerMeasure: number, data: any[]): Array<any> {
@@ -234,6 +253,7 @@ export class ArrangementComponent implements OnInit {
         duration: `${notesPerMeasure}n`,
         index: i,
       });
+      // rebuild data with midi numbers so we can re-import it.
     }
     return notes;
   }
