@@ -105,3 +105,6 @@ dist
 
 # Excel Temp Docs
 ~$*
+
+deploy.sh
+manifest*.yml
